@@ -1,0 +1,821 @@
+{
+  "name": "SEO Research Agent - Phase 1 (v3 - single path)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "8a152c47-be22-4892-8f97-649a1e727eec",
+        "formTitle": "SEO Research Input",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Topic",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Website URL",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Target Countries (comma separated, e.g. PK,US,GB)",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6b410785-c853-4230-acb1-fd5e2c1f6241",
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        -5792,
+        544
+      ],
+      "webhookId": "8a152c47-be22-4892-8f97-649a1e727eec"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json['Website URL'] }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "93269ca4-7045-4d55-a6d6-d2061027cd47",
+      "name": "Fetch Target Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5552,
+        544
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "extractionValues": {
+          "values": [
+            {
+              "key": "pageTitle",
+              "cssSelector": "title"
+            },
+            {
+              "key": "metaDescription",
+              "cssSelector": "meta[name='description']",
+              "returnValue": "attribute",
+              "attribute": "content"
+            },
+            {
+              "key": "h1",
+              "cssSelector": "h1",
+              "returnArray": true
+            },
+            {
+              "key": "h2",
+              "cssSelector": "h2",
+              "returnArray": true
+            },
+            {
+              "key": "bodyText",
+              "cssSelector": "body"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "05c35729-7fc8-4fc0-9fd0-777feade4550",
+      "name": "Parse Target Website Content",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [
+        -5312,
+        544
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const topic = $('Form Trigger').first().json['Topic'];\nconst website = $('Form Trigger').first().json['Website URL'];\nconst countries = $('Form Trigger').first().json['Target Countries (comma separated, e.g. PK,US,GB)']\n  .split(',')\n  .map(c => c.trim().toLowerCase())\n  .filter(Boolean);\n\nreturn countries.map(country => ({ json: { topic, website, country } }));"
+      },
+      "id": "14c1cd1f-37e8-4021-83b9-273559cfffd9",
+      "name": "Split Countries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5072,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "6fb982f1da116c44e04ee5f315e42bcab3581cf1"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "{{ $json.topic }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b9ede0af-159e-41ed-9769-bba072b3830e",
+      "name": "Serper - Get Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4832,
+        544
+      ],
+      "notesInFlow": true,
+      "notes": "API KEY: Serper.dev -> supplied via Custom Auth credential (X-API-KEY header)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputItems = $input.all();\nconst countryItems = $('Split Countries').all();\nlet results = [];\ninputItems.forEach((item, idx) => {\n  const country = countryItems[idx] ? countryItems[idx].json.country : 'unknown';\n  const topic = countryItems[idx] ? countryItems[idx].json.topic : '';\n  const organic = item.json.organic || [];\n  const top = organic.slice(0, 3);\n  top.forEach(r => {\n    results.push({ json: { topic, country, url: r.link, title: r.title } });\n  });\n});\nreturn results;"
+      },
+      "id": "7a92ad21-76be-4a14-b7b3-380a0a84676b",
+      "name": "Extract Top Competitor URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4592,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "6dc74581-2c50-4e8e-85bf-25aea38e5a42",
+      "name": "Fetch Competitor Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4352,
+        544
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "extractionValues": {
+          "values": [
+            {
+              "key": "pageTitle",
+              "cssSelector": "title"
+            },
+            {
+              "key": "metaDescription",
+              "cssSelector": "meta[name='description']",
+              "returnValue": "attribute",
+              "attribute": "content"
+            },
+            {
+              "key": "h1",
+              "cssSelector": "h1",
+              "returnArray": true
+            },
+            {
+              "key": "h2",
+              "cssSelector": "h2",
+              "returnArray": true
+            },
+            {
+              "key": "bodyText",
+              "cssSelector": "body"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8607eb95-9dfa-40b7-b2e8-b13fdeb8c547",
+      "name": "Parse Page Content",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [
+        -4112,
+        544
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "78aba48e-77f7-4225-960a-af090b3bd037",
+      "name": "Combine All Competitor Data",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -3872,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.first().json.data || $input.first().json;\nconst topic = $('Form Trigger').first().json['Topic'];\nconst countries = [...new Set($('Split Countries').all().map(i => i.json.country))];\n\nconst prompt = `You are an SEO researcher. Topic: \"${topic}\". Target countries: ${countries.join(', ')}.\nBelow is scraped competitor page data (title, meta, h1, h2, body text) collected separately for EACH target country.\nExtract:\n1. \"keywords\": AT LEAST 30 relevant SEO keywords/phrases (mix of short-tail and long-tail), covering ALL the target countries listed above (not just one). Each with an estimated relevance score 1-10 and which country/countries it appeared strongly in.\n2. \"entities\": 15-25 related named entities/topics (people, brands, concepts, tools) relevant to this niche, based on what the top competitor pages talk about.\nReturn ONLY valid JSON, no markdown, no explanation, in this exact shape:\n{\"keywords\":[{\"keyword\":\"\",\"score\":0,\"countries\":[\"\"]}],\"entities\":[{\"entity\":\"\",\"type\":\"\"}]}\n\nCompetitor data (grouped across countries):\n${JSON.stringify(items).slice(0, 14000)}`;\n\nreturn [{ json: { prompt } }];"
+      },
+      "id": "b4724a5e-020e-46e7-a40d-7ee8dd2a5824",
+      "name": "Build LLM Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5792,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"contents\": [ { \"parts\": [ { \"text\": $json.prompt } ] } ] } }}",
+        "options": {}
+      },
+      "id": "444d239a-0593-4e6f-b825-d7763d5a79c9",
+      "name": "Gemini - Extract Keywords & Entities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5552,
+        768
+      ],
+      "notesInFlow": true,
+      "notes": "API KEY: Google Gemini"
+    },
+    {
+      "parameters": {
+        "jsCode": "let text = $json.candidates[0].content.parts[0].text;\ntext = text.replace(/```json|```/g, '').trim();\nlet parsed;\ntry { parsed = JSON.parse(text); } catch (e) { parsed = { keywords: [], entities: [] }; }\nreturn [{ json: parsed }];"
+      },
+      "id": "abbfe93c-101c-4910-8594-5761f3552125",
+      "name": "Parse LLM JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5312,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $json;\nconst topic = $('Form Trigger').first().json['Topic'];\nconst prompt = `You already produced a first-draft list of SEO keywords and entities for the topic \"${topic}\":\n${JSON.stringify(initial)}\n\nNow critically REVIEW this list:\n1. Remove any keyword or entity that is NOT clearly relevant to \"${topic}\".\n2. Merge near-duplicate keywords into one (keep the stronger score).\n3. Make sure at least 25-30 genuinely relevant keywords remain — add more relevant ones yourself if the cleaned list drops below 25.\n4. Keep entities focused, non-redundant, and clearly tied to this niche.\n\nReturn ONLY valid JSON in the exact same shape as before:\n{\"keywords\":[{\"keyword\":\"\",\"score\":0,\"countries\":[\"\"]}],\"entities\":[{\"entity\":\"\",\"type\":\"\"}]}`;\nreturn [{ json: { prompt } }];"
+      },
+      "id": "74263a1d-aa0a-4f6f-91b2-786d487b42e8",
+      "name": "Build Refine Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5056,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"contents\": [ { \"parts\": [ { \"text\": $json.prompt } ] } ] } }}",
+        "options": {}
+      },
+      "id": "bfb74fe0-5f70-4b48-8953-f091cc0f1e92",
+      "name": "Gemini - Refine Keywords & Entities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4816,
+        784
+      ],
+      "notesInFlow": true,
+      "notes": "Same Gemini API key"
+    },
+    {
+      "parameters": {
+        "jsCode": "let text = $json.candidates[0].content.parts[0].text;\ntext = text.replace(/```json|```/g, '').trim();\nlet parsed;\ntry { parsed = JSON.parse(text); } catch (e) { parsed = { keywords: [], entities: [] }; }\nreturn [{ json: parsed }];"
+      },
+      "id": "a040878e-ee68-41e0-9780-c7eb776c099d",
+      "name": "Parse Refined JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4544,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nconst keywords = (data.keywords || []).sort((a,b) => b.score - a.score);\nconst best = keywords.slice(0, 15).map(k => k.keyword);\nconst rows = keywords.map(k => ({ json: {\n  keyword: k.keyword,\n  score: k.score,\n  countries: (k.countries||[]).join(', '),\n  is_best: best.includes(k.keyword) ? 'YES' : ''\n} }));\nreturn rows;"
+      },
+      "id": "df645879-d2ee-4f37-9a93-6a24f3eb7b9f",
+      "name": "Score & Format Keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4240,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1DZcfYxBnmpGRQulk_HX7x8d90VAuVBRAkakXYxro7JM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Keywords",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "keyword",
+              "displayName": "keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "countries",
+              "displayName": "countries",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_best",
+              "displayName": "is_best",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "5749dea5-0206-47ec-bbd8-6a17d9fd982e",
+      "name": "Append Keywords to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -3920,
+        768
+      ],
+      "notesInFlow": true,
+      "notes": "CREDENTIAL: Google Sheets OAuth2. Tab: Keywords"
+    },
+    {
+      "parameters": {
+        "jsCode": "const entities = ($('Parse Refined JSON').first().json.entities) || [];\nreturn entities.map(e => ({ json: { entity: e.entity, type: e.type } }));"
+      },
+      "id": "a7fe6d45-c0e2-4eff-b7ab-ae679f0fb604",
+      "name": "Format Entities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5792,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1DZcfYxBnmpGRQulk_HX7x8d90VAuVBRAkakXYxro7JM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Entities",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "entity",
+              "displayName": "entity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "18427261-4448-4e62-ab68-fc2442cedd2b",
+      "name": "Append Entities to Sheet1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -5520,
+        1056
+      ],
+      "notesInFlow": true,
+      "notes": "Same Google Sheets credential. Tab: Entities"
+    },
+    {
+      "parameters": {
+        "jsCode": "const topic = $('Form Trigger').first().json['Topic'];\nconst website = $('Form Trigger').first().json['Website URL'];\nconst bestKeywords = $('Score & Format Keywords').all()\n  .filter(i => i.json.is_best === 'YES')\n  .map(i => i.json.keyword);\nconst entities = $('Format Entities').all().map(i => i.json.entity);\nconst siteInfo = ($('Parse Target Website Content').all()[0] || { json: {} }).json;\n\nconst prompt = `You are writing an SEO article for the website \"${website}\".\n\nFirst, here is what THIS website is actually about (scraped from its homepage):\nTitle: ${siteInfo.pageTitle || 'N/A'}\nMeta description: ${siteInfo.metaDescription || 'N/A'}\nHeadings: ${[].concat(siteInfo.h1||[], siteInfo.h2||[]).join(', ') || 'N/A'}\nBody excerpt: ${(siteInfo.bodyText||'').slice(0,1500)}\n\nBased on the above, figure out what this business actually does (its core service/product/purpose) and write content that fits THAT business specifically. For example, if it is a service-based business, describe the services offered, how the process/workflow works, and other sections relevant to a service business. If it sells products, focus on products/benefits instead. Adapt the structure to match the real nature of this specific site — do not write generic filler.\n\nTopic to write about: \"${topic}\"\nUse these best keywords naturally throughout, each at least once: ${bestKeywords.join(', ')}\nInclude these related entities/concepts where relevant, each at least once: ${entities.join(', ')}\n\nStructure required:\n- SEO Title (under 60 chars)\n- Meta Description (under 155 chars)\n- H1\n- Multiple H2/H3 sections matching the website's actual business/services\n- Intro paragraph with primary keyword in first 100 words\n- Conclusion with a call to action\n- 900-1300 words total\n\nReturn ONLY valid JSON in this shape:\n{\"seo_title\":\"\",\"meta_description\":\"\",\"content_markdown\":\"\"}`;\n\nreturn [{ json: { prompt } }];"
+      },
+      "id": "3dfe73d6-0563-429f-9f76-bc56439d5513",
+      "name": "Build Article Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5232,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"contents\": [ { \"parts\": [ { \"text\": $json.prompt } ] } ] } }}",
+        "options": {}
+      },
+      "id": "c4849b01-3a34-4ed0-b40f-c6489bb8ae98",
+      "name": "Gemini - Write SEO Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4944,
+        1088
+      ],
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "notes": "Same Gemini API key. Auto-retries 3x on service unavailable"
+    },
+    {
+      "parameters": {
+        "jsCode": "let text = $json.candidates[0].content.parts[0].text;\ntext = text.replace(/```json|```/g, '').trim();\nlet article;\ntry { article = JSON.parse(text); } catch (e) { article = { seo_title: '', meta_description: '', content_markdown: text }; }\n\nconst bestKeywords = $('Score & Format Keywords').all()\n  .filter(i => i.json.is_best === 'YES')\n  .map(i => i.json.keyword.toLowerCase());\nconst entities = $('Format Entities').all().map(i => i.json.entity.toLowerCase());\n\nconst body = (article.content_markdown || '').toLowerCase();\nconst wordCount = body.split(/\\s+/).filter(Boolean).length;\nconst keywordHits = bestKeywords.filter(k => body.includes(k));\nconst missingKeywords = bestKeywords.filter(k => !body.includes(k));\nconst entityHits = entities.filter(e => body.includes(e));\nconst missingEntities = entities.filter(e => !body.includes(e));\nconst first100 = body.split(/\\s+/).slice(0,100).join(' ');\n\nconst checklist = {\n  seo_title_length_ok: (article.seo_title||'').length <= 60,\n  meta_description_length_ok: (article.meta_description||'').length <= 155,\n  has_h1: /^#\\s/m.test(article.content_markdown || ''),\n  has_h2_or_h3: /^##\\s|^###\\s/m.test(article.content_markdown || ''),\n  word_count: wordCount,\n  word_count_ok: wordCount >= 900,\n  keywords_used: keywordHits.length + ' / ' + bestKeywords.length,\n  missing_keywords: missingKeywords.join(', '),\n  entities_used: entityHits.length + ' / ' + entities.length,\n  missing_entities: missingEntities.join(', '),\n  primary_keyword_in_intro: bestKeywords.length ? first100.includes(bestKeywords[0]) : false\n};\n\nreturn [{ json: { ...article, ...checklist } }];"
+      },
+      "id": "eeb2375d-2b73-45e7-8c2f-a20798ead418",
+      "name": "Run SEO Checklist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4640,
+        1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $('Run SEO Checklist').item.json.content_markdown || '';\nconst lines = raw.split('\\n');\n\nlet plainText = '';\nlet requests = [];\nlet cursor = 1;\n\nfunction processLine(line) {\n  let level = 0;\n  let text = line;\n  const h3 = /^###\\s+(.*)/.exec(line);\n  const h2 = /^##\\s+(.*)/.exec(line);\n  const h1 = /^#\\s+(.*)/.exec(line);\n  if (h3) { level = 3; text = h3[1]; }\n  else if (h2) { level = 2; text = h2[1]; }\n  else if (h1) { level = 1; text = h1[1]; }\n\n  let boldRanges = [];\n  let cleaned = '';\n  let i = 0;\n  while (i < text.length) {\n    if (text[i] === '*' && text[i+1] === '*') {\n      const end = text.indexOf('**', i + 2);\n      if (end !== -1) {\n        const boldText = text.slice(i + 2, end);\n        const start = cleaned.length;\n        cleaned += boldText;\n        boldRanges.push({ start, end: cleaned.length });\n        i = end + 2;\n        continue;\n      }\n    }\n    cleaned += text[i];\n    i++;\n  }\n  return { level, text: cleaned, boldRanges };\n}\n\nfor (const line of lines) {\n  const { level, text, boldRanges } = processLine(line);\n  const lineStart = cursor;\n  plainText += text + '\\n';\n  const lineEnd = cursor + text.length;\n\n  if (level > 0) {\n    requests.push({\n      updateParagraphStyle: {\n        range: { startIndex: lineStart, endIndex: lineEnd + 1 },\n        paragraphStyle: { namedStyleType: level === 1 ? 'HEADING_1' : level === 2 ? 'HEADING_2' : 'HEADING_3' },\n        fields: 'namedStyleType'\n      }\n    });\n  }\n  boldRanges.forEach(b => {\n    requests.push({\n      updateTextStyle: {\n        range: { startIndex: lineStart + b.start, endIndex: lineStart + b.end },\n        textStyle: { bold: true },\n        fields: 'bold'\n      }\n    });\n  });\n  cursor = lineEnd + 1;\n}\n\nconst allRequests = [{ insertText: { location: { index: 1 }, text: plainText } }, ...requests];\nreturn [{ json: { requests: allRequests } }];"
+      },
+      "id": "f317c60d-2992-4cb6-8fea-cddb52119c7e",
+      "name": "Build Google Docs Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4288,
+        1088
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "3dc80fd4-b405-4338-8d76-82d23d84789b",
+      "name": "Format & Insert Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -3984,
+        1072
+      ],
+      "credentials": {}
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Target Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Target Website": {
+      "main": [
+        [
+          {
+            "node": "Parse Target Website Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Target Website Content": {
+      "main": [
+        [
+          {
+            "node": "Split Countries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Countries": {
+      "main": [
+        [
+          {
+            "node": "Serper - Get Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper - Get Competitors": {
+      "main": [
+        [
+          {
+            "node": "Extract Top Competitor URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Top Competitor URLs": {
+      "main": [
+        [
+          {
+            "node": "Fetch Competitor Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Competitor Page": {
+      "main": [
+        [
+          {
+            "node": "Parse Page Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Page Content": {
+      "main": [
+        [
+          {
+            "node": "Combine All Competitor Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine All Competitor Data": {
+      "main": [
+        [
+          {
+            "node": "Build LLM Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build LLM Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Extract Keywords & Entities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Extract Keywords & Entities": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM JSON": {
+      "main": [
+        [
+          {
+            "node": "Build Refine Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Refine Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Refine Keywords & Entities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Refine Keywords & Entities": {
+      "main": [
+        [
+          {
+            "node": "Parse Refined JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Refined JSON": {
+      "main": [
+        [
+          {
+            "node": "Score & Format Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score & Format Keywords": {
+      "main": [
+        [
+          {
+            "node": "Append Keywords to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Keywords to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Format Entities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Entities": {
+      "main": [
+        [
+          {
+            "node": "Append Entities to Sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Entities to Sheet1": {
+      "main": [
+        [
+          {
+            "node": "Build Article Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Article Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Write SEO Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Write SEO Article": {
+      "main": [
+        [
+          {
+            "node": "Run SEO Checklist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run SEO Checklist": {
+      "main": [
+        [
+          {
+            "node": "Build Google Docs Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6d4eae22-03a3-470d-b296-277a530507c9",
+  "meta": {
+    "instanceId": "3a3d6c8fdac2d3ab61b4974077655fb97c807d1f710e6cbf98656089d177f374"
+  },
+  "id": "cqksThlbfftJetsz",
+  "tags": []
+}
